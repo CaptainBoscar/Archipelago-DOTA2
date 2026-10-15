@@ -10,7 +10,7 @@ from datetime import datetime
 
 from .constants import PROGRESSIVE_GROUP_UNLOCK_ID, PRIMORDIAL_FRAGMENT_ID, FILLER_ITEM_ID
 from .dota_api import parse_most_recent_match_data, DotaMatchData
-from .locations import LocationDef, load_item_locations 
+from .locations import LocationDef, load_item_locations, build_item_name_to_dname
 from .hero import Hero, get_all_heroes, hero_from_dict
 
 from CommonClient import CommonContext, gui_enabled, server_loop, console_loop, ClientCommandProcessor
@@ -79,7 +79,7 @@ class Dota2Save:
     unique_heroes_won: list[Hero] = field(default_factory=list)
     
     # Anti-duplicate
-    submitted_match_ids: list[str] = field(default_factory=list)
+    submitted_match_ids: list[int] = field(default_factory=list)
 
     most_recent_game_time: int = 0
 
@@ -89,10 +89,9 @@ class Dota2Save:
 
     items_received_index: int = 0
 
-    def __post_init__(self) -> None:
-        print("POST_INIT unique_heroes_won =", self.unique_heroes_won)
-        print("POST_INIT TYPE =", type(self.unique_heroes_won))
+    item_name_to_dname: dict = field(default_factory=dict)
 
+    def __post_init__(self) -> None:
         if self.submitted_match_ids is None:
             self.submitted_match_ids = []
         if not self.start_date_local:
@@ -205,10 +204,11 @@ async def _check_goal_and_send_if_met(
 
 def _unlock_next_hero_group(ctx: "Dota2Context") -> None:
     hero_group_i = ctx.save.progressive_hero_group_unlocks
-    for hero in ctx.save.hero_groups[hero_group_i]:
-        ctx.save.heroes_unlocked.append(hero)
+    if hero_group_i < len(ctx.save.hero_groups):
+        for hero in ctx.save.hero_groups[hero_group_i]:
+            ctx.save.heroes_unlocked.append(hero)
 
-    ctx.save.progressive_hero_group_unlocks += 1    
+        ctx.save.progressive_hero_group_unlocks += 1        
         
 
 
@@ -268,7 +268,6 @@ class Dota2Context(CommonContext):
             setattr(self, "slot_data", args.get("slot_data") or {})
             starting_hero_names = self.slot_data.get("starting_hero_pool", [])
             hero_group_names = self.slot_data.get("hero_groups", [])
-            self.save.progressive_hero_group_unlocks = self.slot_data.get("progressive_hero_group_unlocks", [])
 
             self.save.all_heroes = get_all_heroes()
 
@@ -288,21 +287,12 @@ class Dota2Context(CommonContext):
                 for hero in self.save.heroes_unlocked
             ]
 
-            if isinstance(self.save.unique_heroes_won, dict):
-                self.save.unique_heroes_won = [self.save.unique_heroes_won]
+            self.save.unique_heroes_won = [
+                hero_by_id[hero["id"]] if isinstance(hero, dict) else hero
+                for hero in self.save.unique_heroes_won
+            ]
 
-            if isinstance(self.save.unique_heroes_won, list):
-                saved_names = {
-                    hero["name"]
-                    for hero in self.save.unique_heroes_won
-                    if isinstance(hero, dict)
-                }
-
-                self.save.unique_heroes_won = [
-                    hero
-                    for hero in self.save.all_heroes
-                    if hero.name in saved_names
-                ]
+            self.save.item_name_to_dname = build_item_name_to_dname()
 
             raw_item_id_to_name = self.slot_data.get("item_name_to_id", {})
             self.save.item_name_to_id = {name: int(item_id) for item_id, name in raw_item_id_to_name.items()}
@@ -476,7 +466,8 @@ class Dota2Context(CommonContext):
                         group_name = f"Group {i}"
                         break
 
-            self.output(f"{hero.name} - {group_name}")
+            role = "Carry" if "Carry" in hero.roles else "Support"
+            self.output(f"{hero.name} - {group_name} - {hero.primary_attr} - {hero.attack_type} - {hero.legs} legs - {role}")
 
     def get_hero_wins(self) -> None:
         self.output(f"Hero Wins: {len(self.save.unique_heroes_won)}")
@@ -499,9 +490,11 @@ class Dota2Context(CommonContext):
             return
 
         #most importantly check if win: do no need to win to send some checks:
+        #Do not add to win counter if match already played
         win = False
-        if(match_data.win == 1):
+        if(match_data.win == 1 and not match_data.match_id in self.save.submitted_match_ids):
             self.save.wins_total += 1
+            self.save.submitted_match_ids.append(match_data.match_id)
             win = True
 
         self.output(win)
@@ -557,7 +550,7 @@ class Dota2Context(CommonContext):
         purchases = match_data.purchase
 
         KILL_THRESHOLDS = [1, 5, 10]
-        DEWARD_THRESHOLDS = [1, 5, 10]
+        DEWARD_THRESHOLDS = [1, 3, 7]
         ASSIST_THRESHOLDS = [5, 10, 20]
         LASTHIT_THRESHOLDS = [75, 125, 175]
         DENIES_THRESHOLDS = [8, 16, 32]
@@ -618,17 +611,21 @@ class Dota2Context(CommonContext):
     def check_purchases(self, purchases : list[str], all_item_locations: list[LocationDef]) -> list[str]:
             valid_purchases = []
             for purchase in purchases:
-                item_location = next((location for location in all_item_locations if location.name == purchase), None)
+                dname = self.save.item_name_to_dname.get(purchase)
+                if dname == None:
+                    continue
+
+                item_location = next((location for location in all_item_locations if location.name == dname), None)
 
                 if item_location == None:
                     continue
 
                 if item_location.requirements == None or len(item_location.requirements) == 0 :
-                    valid_purchases.append(purchase)
+                    valid_purchases.append(dname)
                 else:
                     requirements_met = self.item_requirements_met(item_location.requirements)
                     if requirements_met:
-                        valid_purchases.append(purchase)
+                        valid_purchases.append(dname)
             return valid_purchases
             
     def item_requirements_met(self, requirements: list[str]) -> bool:
