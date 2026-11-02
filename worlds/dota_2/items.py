@@ -75,6 +75,22 @@ def load_shop_unlock_items() -> List[ItemDef]:
 
     return items
 
+def load_minigame_unlock_items() -> List[ItemDef]:
+    # Works in source and in zipped apworld due to importlib.resources.
+    items: List[ItemDef] = []
+
+    with resources.files(__package__).joinpath("data/minigameItems.json").open("r", encoding="utf-8") as f:
+        data = json.load(f)
+        
+        for item in data['minigame_items']:
+            name = item['name']
+            classification = _parse_classification("progression")
+            copies = 1
+            include_in_filler = False
+            items.append(ItemDef(name=name, classification=classification, copies=copies, include_in_filler=include_in_filler))
+
+    return items
+
 # Internal filler item used to pad itempool to location count when needed.
 FILLER_ITEM_NAME = "Madstone"
 
@@ -107,5 +123,6 @@ def load_item_defs() -> list[ItemDef]:
             include_in_filler=True,
         ))
     items.extend(load_shop_unlock_items())
+    items.extend(load_minigame_unlock_items())
 
     return items

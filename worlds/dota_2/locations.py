@@ -15,7 +15,7 @@ from . import items
 @dataclass(frozen=True)
 class LocationDef:
     name: str
-    type: str = ""  # "HERO_WIN", "ITEM_BUY", "GAME_STAT", "GOAL"
+    type: str = ""  # "HERO_WIN", "ITEM_BUY", "GAME_STAT", "GOAL", MINIGAME
     requirements: list[str] = field(default_factory=list)
 
 
@@ -62,6 +62,21 @@ def load_item_locations() -> List[LocationDef]:
             requirements = item_data.get("requirements") or []
             type = 'ITEM_BUY'
             name = item_data["dname"]
+
+            locs.append(LocationDef(name = name, type=type, requirements=requirements))
+
+    return locs
+
+def load_minigame_locations() -> List[LocationDef]:
+    locs: List[LocationDef] = []
+
+    with resources.files(__package__).joinpath("data/minigameLocations.json").open("r", encoding="utf-8") as f:
+        data = json.load(f)
+
+        for minigame_name, minigame_data in data.items():
+            requirements = minigame_data.get("requirements") or []
+            type = 'MINIGAME'
+            name = minigame_data["dname"]
 
             locs.append(LocationDef(name = name, type=type, requirements=requirements))
 

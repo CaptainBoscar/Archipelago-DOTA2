@@ -12,9 +12,9 @@ from worlds.AutoWorld import World, WebWorld
 
 # Imports of your world's files must be relative.
 from .constants import DOTA2_BASE_ID
-from .options import (DOTA2Options, GoalType,)
-from .items import DOTA2Item, ItemDef, load_hero_unlock_items, build_item_name_to_id, FILLER_ITEM_NAME,load_item_defs, load_shop_unlock_items
-from .locations import DOTA2Location, LocationDef, load_hero_locations, build_location_name_to_id, load_item_locations, load_game_stat_locations,load_static_hero_locations, load_victory_location
+from .options import (DOTA2Options, GoalType, CrownFall)
+from .items import DOTA2Item, ItemDef, load_hero_unlock_items, build_item_name_to_id, FILLER_ITEM_NAME,load_item_defs, load_shop_unlock_items, load_minigame_unlock_items
+from .locations import DOTA2Location, LocationDef, load_hero_locations, build_location_name_to_id, load_item_locations, load_game_stat_locations,load_static_hero_locations, load_victory_location, load_minigame_locations
 from .rules import set_dota_rules
 from .regions import create_regions_and_locations
 from .hero import Hero, get_starting_hero_pool, get_all_heroes
@@ -72,6 +72,7 @@ class DOTA2World(World):
             + load_item_locations()
             + load_game_stat_locations()
             + load_victory_location()
+            + load_minigame_locations()
         )
 
     _item_defs = load_item_defs()
@@ -102,13 +103,21 @@ class DOTA2World(World):
         self._location_defs.extend(load_item_locations())
         self._location_defs.extend(load_game_stat_locations())
         self._location_defs.extend(load_victory_location())
+        self._location_defs.extend(load_minigame_locations())
 
         self._item_defs.extend(load_hero_unlock_items(self))
         self._item_defs.extend(load_shop_unlock_items())
+        self._item_defs.extend(load_minigame_unlock_items())
+
+        exclude_minigames = self.options.crownfall == CrownFall.option_off
 
         # location_name_to_id is set per-instance in generate_early from filtered defs (see below).
         def location_type_valid(d: LocationDef) -> bool:
-            return d.type == "HERO_WIN" or d.type ==  "ITEM_BUY" or d.type ==  "GAME_STAT" or d.type ==  "GOAL"
+            if not exclude_minigames: 
+                return d.type == "HERO_WIN" or d.type ==  "ITEM_BUY" or d.type ==  "GAME_STAT" or d.type ==  "GOAL" or d.type ==  "MINIGAME"
+            if exclude_minigames:
+                 return d.type == "HERO_WIN" or d.type ==  "ITEM_BUY" or d.type ==  "GAME_STAT" or d.type ==  "GOAL"
+                
     
         self._filtered_location_defs = [d for d in self._location_defs if location_type_valid(d)]
         self.location_name_to_id = build_location_name_to_id(

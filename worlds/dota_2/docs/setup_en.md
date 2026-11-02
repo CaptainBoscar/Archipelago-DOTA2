@@ -51,5 +51,8 @@ Follow these steps to play Deadlock with Archipelago
 
 `/hero_wins` - tells you number of unique hero wins and which heroes you have won with.
 
+`/minigame` - sending in minigame score checks. command should be typed like /minigame {first world of minigame} {score}. Example /minigame Nest 100000 or /minigame gone 5000 
+    minigame keywords are as follows [gone, bat, oasis, sand, sleet, dragon, zaug's, spoon, spleen, nest].
+
 
 

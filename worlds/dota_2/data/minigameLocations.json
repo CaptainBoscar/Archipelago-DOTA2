@@ -1,0 +1,195 @@
+{
+  "gone_fishing_1": {
+    "dname": "Gone Fishin' 4,000",
+    "requirements": [
+      "Gone Fishin' Minigame"
+    ]
+  },
+  "gone_fishing_2": {
+    "dname": "Gone Fishin' 7,000",
+    "requirements": [
+      "Gone Fishin' Minigame"
+    ]
+  },
+  "gone_fishing_3": {
+    "dname": "Gone Fishin' 10,000",
+    "requirements": [
+      "Gone Fishin' Minigame"
+    ]
+  },
+  "bat_racer_1": {
+    "dname": "Bat Racer 2,000",
+    "requirements": [
+      "Bat Racer Minigame"
+    ]
+  },
+  "bat_racer_2": {
+    "dname": "Bat Racer 5,000",
+    "requirements": [
+      "Bat Racer Minigame"
+    ]
+  },
+  "bat_racer_3": {
+    "dname": "Bat Racer 12,000",
+    "requirements": [
+      "Bat Racer Minigame"
+    ]
+  },
+  "oasis_fishing_1": {
+    "dname": "Oasis Fishing 3,000",
+    "requirements": [
+      "Oasis Fishing Minigame"
+    ]
+  },
+  "oasis_fishing_2": {
+    "dname": "Oasis Fishing 6,000",
+    "requirements": [
+      "Oasis Fishing Minigame"
+    ]
+  },
+  "oasis_fishing_3": {
+    "dname": "Oasis Fishing 10,000",
+    "requirements": [
+      "Oasis Fishing Minigame"
+    ]
+  },
+  "sand_fishing_1": {
+    "dname": "Sand Fishing 4,000",
+    "requirements": [
+      "Sand Fishing Minigame"
+    ]
+  },
+  "sand_fishing_2": {
+    "dname": "Sand Fishing 7,000",
+    "requirements": [
+      "Sand Fishing Minigame"
+    ]
+  },
+  "sand_fishing_3": {
+    "dname": "Sand Fishing 10,000",
+    "requirements": [
+      "Sand Fishing Minigame"
+    ]
+  },
+  "sleet_fighter_1": {
+    "dname": "Sleet Fighter 7,000",
+    "requirements": [
+      "Sleet Fighter Minigame"
+    ]
+  },
+  "sleet_fighter_2": {
+    "dname": "Sleet Fighter 21,000",
+    "requirements": [
+      "Sleet Fighter Minigame"
+    ]
+  },
+  "sleet_fighter_3": {
+    "dname": "Sleet Fighter 35,000",
+    "requirements": [
+      "Sleet Fighter Minigame"
+    ]
+  },
+  "dragon_chess_1": {
+    "dname": "Dragon Chess 7,000",
+    "requirements": [
+      "Dragon Chess Minigame"
+    ]
+  },
+  "dragon_chess_2": {
+    "dname": "Dragon Chess 20,000",
+    "requirements": [
+      "Dragon Chess Minigame"
+    ]
+  },
+  "dragon_chess_3": {
+    "dname": "Dragon Chess 40,000",
+    "requirements": [
+      "Dragon Chess Minigame"
+    ]
+  },
+  "zuags_lair_1": {
+    "dname": "Zaug's Lair 800,000",
+    "requirements": [
+      "Zaug's Lair Minigame"
+    ]
+  },
+  "zuags_lair_2": {
+    "dname": "Zaug's Lair 1,000,000",
+    "requirements": [
+      "Zaug's Lair Minigame"
+    ]
+  },
+  "zuags_lair_3": {
+    "dname": "Zaug's Lair 1,500,000",
+    "requirements": [
+      "Zaug's Lair Minigame"
+    ]
+  },
+  "spoon_man_1": {
+    "dname": "Spoon Man 2,000",
+    "requirements": [
+      "Spoon Man Minigame"
+    ]
+  },
+  "spoon_man_2": {
+    "dname": "Spoon Man 4,000",
+    "requirements": [
+      "Spoon Man Minigame"
+    ]
+  },
+  "spoon_man_3": {
+    "dname": "Spoon Man 5,000",
+    "requirements": [
+      "Spoon Man Minigame"
+    ]
+  },
+  "spleen_sweeper_1": {
+    "dname": "Spleen Sweeper 5,000",
+    "requirements": [
+      "Spleen Sweeper Minigame"
+    ]
+  },
+  "spleen_sweeper_2": {
+    "dname": "Spleen Sweeper 10,000",
+    "requirements": [
+      "Spleen Sweeper Minigame"
+    ]
+  },
+  "spleen_sweeper_3": {
+    "dname": "Spleen Sweeper 20,000",
+    "requirements": [
+      "Spleen Sweeper Minigame"
+    ]
+  },
+  "nest_thorns_1": {
+    "dname": "Nest of Thorns 20,000",
+    "requirements": [
+      "Nest of Thorns Minigame"
+    ]
+  },
+  "nest_thorns_2": {
+    "dname": "Nest of Thorns 40,000",
+    "requirements": [
+      "Nest of Thorns Minigame"
+    ]
+  },
+  "nest_thorns_3": {
+    "dname": "Nest of Thorns 60,000",
+    "requirements": [
+      "Nest of Thorns Minigame"
+    ]
+  },
+  "nest_thorns_4": {
+    "dname": "Nest of Thorns 80,000",
+    "requirements": [
+      "Nest of Thorns Minigame"
+    ]
+  },
+  "nest_thorns_5": {
+    "dname": "Nest of Thorns 100,000",
+    "requirements": [
+      "Nest of Thorns Minigame"
+    ]
+  }
+
+}

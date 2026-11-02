@@ -141,12 +141,12 @@ OPEN_DOTA = OpenDotaLocal()
 
 
 def get_most_recent_match_id(steamID):
-    print(f"DEBUG: awaiting getting player matches")
+    #print(f"DEBUG: awaiting getting player matches")
     matches = OPEN_DOTA.get_player_matches(steamID)
     if not matches:
         api_logger.warning("Could not retrieve player matches from OpenDota.")
         return None
-    print(f"DEBUG: {matches[0]['match_id']}")
+    #print(f"DEBUG: {matches[0]['match_id']}")
     return matches[0]['match_id']
 
 async def request_match_parse(steamID):
@@ -157,11 +157,11 @@ async def request_match_parse(steamID):
     result = OPEN_DOTA.request_parse(match_id)
 
     job_id = result['job']["jobId"]
-    print(f'{job_id}')
-    print(f"DEBUG: parse loop")
+    #print(f'{job_id}')
+    #print(f"DEBUG: parse loop")
     while True:
         status = OPEN_DOTA.request_status(job_id)
-        print(f"DEBUG: status = {status}")
+        #print(f"DEBUG: status = {status}")
         if status == None:
             break
 
@@ -170,7 +170,7 @@ async def request_match_parse(steamID):
     return OPEN_DOTA.get_match(match_id)
 
 def get_my_player(players, steamID) -> dict:
-    print(f"DEBUG: getting player")
+    #print(f"DEBUG: getting player")
     for player in players:
         if player['account_id'] == steamID:
             return player
@@ -178,14 +178,14 @@ def get_my_player(players, steamID) -> dict:
     raise ValueError("Player not found in match")
 
 async def parse_most_recent_match_data(steamID):
-    print(f"DEBUG: Steam ID = {steamID}")
+    #print(f"DEBUG: Steam ID = {steamID}")
     match = await request_match_parse(steamID)
     match_id = match['match_id']
-    print(f"{match_id}")
+    #print(f"{match_id}")
     players = match['players']
     my_player = get_my_player(players, steamID)
     api_logger.info(my_player["hero_id"])
-    print(f"{my_player['hero_id']}")
+    #print(f"{my_player['hero_id']}")
     return DotaMatchData(
         match_id = match_id,
         hero_id = my_player['hero_id'],

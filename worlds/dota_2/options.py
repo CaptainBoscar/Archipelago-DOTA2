@@ -9,11 +9,9 @@ class GoalType(Choice):
     """How game completion is determined.
 
     - **Standard:** Win with X different characters, Have Y Total wins, and Collect Z Primordial Fragments.
-    - **All Heroes:**  Unique Hero wins are checks *!!!NOT YET IMPLEMENTED!!!*
     """
     display_name = "Goal Type"
     option_standard = 0
-    option_all_heroes = 1
     default = 0
 
 class UniqueCharactersToWin(Range):
@@ -38,6 +36,14 @@ class PrimordialFragmentsToWin(Range):
     range_start = 10
     range_end = 50 #will always add 10 more than chosen
     default = 10
+
+class CrownFall(Choice):
+    """Adds the Crownfall minigames as locations, each minigame has it's own unlock.
+    """
+    display_name = "Crownfall Minigames"
+    option_off = 0
+    option_on = 1
+    default = 0
 
 # class PrimordialFragmentsToUnlockFinal(Range):
 #     """Number of Primordial Fragments (MacGuffin) you must collect to unlock your final character (Win with Character goal).
@@ -75,6 +81,7 @@ class DOTA2Options(PerGameCommonOptions):
     unique_characters_to_win: UniqueCharactersToWin
     total_wins_to_win: TotalWinsToWin
     primordial_fragments_to_win: PrimordialFragmentsToWin
+    crownfall: CrownFall
     #primordial_fragments_to_unlock_final: PrimordialFragmentsToUnlockFinal
     #final_character: FinalCharacter
     # game_mode: GameMode

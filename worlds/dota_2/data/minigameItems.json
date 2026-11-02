@@ -1,0 +1,74 @@
+{
+    "minigame_items": [
+        {
+            "id": 1,
+            "name": "Gone Fishin' Minigame",
+            "classification": "progression",
+            "copies": 1,
+            "include_in_filler": "False"
+        },
+        {
+            "id": 2,
+            "name": "Bat Racer Minigame",
+            "classification": "progression",
+            "copies": 1,
+            "include_in_filler": "False"
+        },
+        {
+            "id": 3,
+            "name": "Oasis Fishing Minigame",
+            "classification": "progression",
+            "copies": 1,
+            "include_in_filler": "False"
+        },
+        {
+            "id": 4,
+            "name": "Sand Fishing Minigame",
+            "classification": "progression",
+            "copies": 1,
+            "include_in_filler": "False"
+        },
+        {
+            "id": 5,
+            "name": "Sleet Fighter Minigame",
+            "classification": "progression",
+            "copies": 1,
+            "include_in_filler": "False"
+        },
+        {
+            "id": 6,
+            "name": "Dragon Chess Minigame",
+            "classification": "progression",
+            "copies": 1,
+            "include_in_filler": "False"
+        },
+        {
+            "id": 7,
+            "name": "Zaug's Lair Minigame",
+            "classification": "progression",
+            "copies": 1,
+            "include_in_filler": "False"
+        },
+        {
+            "id": 8,
+            "name": "Spoon Man Minigame",
+            "classification": "progression",
+            "copies": 1,
+            "include_in_filler": "False"
+        },
+        {
+            "id": 10,
+            "name": "Spleen Sweeper Minigame",
+            "classification": "progression",
+            "copies": 1,
+            "include_in_filler": "False"
+        },
+        {
+            "id": 11,
+            "name": "Nest of Thorns Minigame",
+            "classification": "progression",
+            "copies": 1,
+            "include_in_filler": "False"
+        }
+    ]
+}
