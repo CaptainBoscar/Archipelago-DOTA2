@@ -10,7 +10,7 @@ from datetime import datetime
 
 from .constants import PROGRESSIVE_GROUP_UNLOCK_ID, PRIMORDIAL_FRAGMENT_ID, FILLER_ITEM_ID
 from .dota_api import parse_most_recent_match_data, DotaMatchData
-from .locations import LocationDef, load_item_locations, build_item_name_to_dname
+from .locations import LocationDef, load_item_locations, build_item_name_to_dname, load_minigame_locations
 from .hero import Hero, get_all_heroes, hero_from_dict
 
 from CommonClient import CommonContext, gui_enabled, server_loop, console_loop, ClientCommandProcessor
@@ -44,6 +44,10 @@ class Dota2CommandProcessor(ClientCommandProcessor):
     def _cmd_hero_wins(self) -> None:
         """View hero wins"""
         self.ctx.get_hero_wins()
+
+    def _cmd_minigame(self, name: str ="", score: int = 0) -> None:
+        """Submit Minigame scores when unlocked. /minigame {first world of name} {score} Ex. /minigame Nest 80000"""
+        asyncio.create_task(self.ctx.cmd_minigame(name, score))
 
 try:
     from Utils import async_start
@@ -474,6 +478,27 @@ class Dota2Context(CommonContext):
         for hero in self.save.unique_heroes_won:
             self.output(f"{hero.name}")
 
+    async def cmd_minigame(self, game: str = "", score: int=0 ) -> None:
+            self.ensure_seed_save_loaded()
+            games=['gone', 'bat', 'oasis', 'sand', 'sleet', 'dragon', 'zaug\'s', 'spoon', 'spleen', 'nest']
+            if not game or not score:
+                self.output("Usage: /minigame 'first world of game' 'score', Ex. /minigame Nest 100000 or /minigame Sleet 50000")
+                return
+    
+            game = game.lower()
+            if game not in games:
+                self.output('entered game is not valid, please try again')
+                return
+            
+            score = int(score.replace(',', ''))
+            if not score:
+                self.output('entered score is not valid, please try again')
+                return
+
+            await self.check_minigame_score(game, score)
+
+            self.save_save()
+            
 
     async def check_dota_goals_and_locations(self, match_data:DotaMatchData ) -> None:
         self.output("inside the check method")
@@ -600,9 +625,6 @@ class Dota2Context(CommonContext):
         if valid_location_ids:
             await self.check_locations(valid_location_ids)
 
-        #uncomment this for later once I am done testing
-        #self.save.last_valid_match_id = match_data.match_id
-
         await _check_goal_and_send_if_met(self)
 
     async def game_complete(self) -> None:
@@ -646,7 +668,45 @@ class Dota2Context(CommonContext):
                 return False
 
         return True
+
+    async def check_minigame_score(self, game: str, score: int) -> None:
+        valid_location = []
+        locations = load_minigame_locations()
+        game_locations = self.location_names[self.game]
+        location_name_to_id = { name: location_id for location_id, name in game_locations.items()}
+        received_item_ids = {item.item for item in self.items_received}
+        minigames = [location for location in locations if game in location.name.lower()]
+        for minigame in minigames:
+            requirement = minigame.requirements[0]
+            item_id = self.save.item_name_to_id.get(requirement)
+            if item_id is not None and item_id in received_item_ids: 
+                threshold = int(minigame.name.split()[-1].replace(',', ''))
+                if score >= threshold:
+                    valid_location.append(minigame.name)
+
+        valid_location_ids = []
+        for location in valid_location:
+            location_id = location_name_to_id.get(location)
         
+            if location_id is None:
+                continue
+        
+            # Don't send a location we've already checked
+            if location_id not in self.missing_locations:
+                continue
+        
+            valid_location_ids.append(location_id)
+        
+        if valid_location_ids:
+            await self.check_locations(valid_location_ids)
+        
+        await _check_goal_and_send_if_met(self)
+        
+                
+
+        
+
+    
 
 async def _main() -> None:
     ctx = Dota2Context()

@@ -38,6 +38,11 @@ def create_regions_and_locations(world: DOTA2World, location_defs: list[Location
             location.access_rule = lambda state, category=category: (
                 category_hero_available(world, state, category)
             )
+        elif d.type == "MINIGAME":
+            location.access_rule = (
+                lambda state, requirements=d.requirements:
+                    minigame_requirement_met(world, state, requirements)
+            )
         elif d.requirements:
             location.access_rule = (
                 lambda state, requirements=d.requirements:
@@ -114,5 +119,16 @@ def item_requirements_met(
         if not state.has("Unlock " + requirement, world.player):
             return False
 
+    return True
+
+def minigame_requirement_met(
+    world: DOTA2World,
+    state,
+    requirements: list[str]
+) -> bool:
+    for requirement in requirements:
+        if not state.has(requirement, world.player):
+            return False
+        
     return True
 

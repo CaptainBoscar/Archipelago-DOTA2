@@ -1,0 +1,19 @@
+{
+  "seed_name": "unconnected",
+  "start_date_local": "2026-11-01T20:27:30-06:00",
+  "steamid": null,
+  "primordial_fragments_total": 0,
+  "wins_total": 0,
+  "starting_hero_pool": [],
+  "hero_groups": [],
+  "heroes_unlocked": [],
+  "all_heroes": [],
+  "item_name_to_id": {},
+  "unique_heroes_won": [],
+  "submitted_match_ids": [],
+  "most_recent_game_time": 0,
+  "last_valid_match_id": 0,
+  "progressive_hero_group_unlocks": 0,
+  "items_received_index": 0,
+  "item_name_to_dname": {}
+}
