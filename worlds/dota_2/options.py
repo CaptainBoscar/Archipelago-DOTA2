@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 import json
+import textwrap
 from dataclasses import dataclass
 from importlib import resources
-from Options import Choice, Range, PerGameCommonOptions
+from typing import Any
+from Options import Choice, Range, PerGameCommonOptions, OptionSet, OptionDict
+
+from .challenges import FAMILIES, DISABLEABLE_CHECKS, VALUES, SCALES, MAX_THRESHOLDS, STATS, QUESTS, CHALLENGE_CHECKS
+from .constants import MAX_HERO_GROUPS
 
 class GoalType(Choice):
     """How game completion is determined.
@@ -45,34 +50,82 @@ class CrownFall(Choice):
     option_on = 1
     default = 0
 
-# class PrimordialFragmentsToUnlockFinal(Range):
-#     """Number of Primordial Fragments (MacGuffin) you must collect to unlock your final character (Win with Character goal).
+class StartingHeroes(Range):
+    """Number of heroes playable from the start."""
+    display_name = "Starting Heroes"
+    range_start = 5
+    range_end = 120
+    default = 30
 
-#     The world caps this below the usual Primordial Fragments max by three: the final hero's three win checks require
-#     this many Primordial Fragments first and may themselves contain Primordial Fragments, so the threshold must be reachable using
-#     other locations only.
-#     """
-#     display_name = "Spirits to Unlock Final Character"
-#     range_start = 1
-#     range_end = 10
-#     default = 5
 
-# _FINAL_CHARACTER_NAMES: list[str] = _load_hero_names()
+class HeroGroups(Range):
+    """Number of hero groups to unlock. The other heroes are split evenly between them."""
+    display_name = "Hero Groups"
+    range_start = 1
+    range_end = MAX_HERO_GROUPS
+    default = 7
 
-# def _hero_name_to_option_key(name: str) -> str:
-#     return name.lower().replace(" ", "_").replace("&", "and")
 
-# Build FinalCharacter with all option_* in the class namespace at creation time so the
-# Choice metaclass (AssembleOptions) sees them and populates .options / .name_lookup.
-# _final_char_attrs: dict = {
-#     "__module__": __name__,
-#     "display_name": "Final Character (Win With)",
-#     "default": 0,
-# }
-# for _i, _name in enumerate(_FINAL_CHARACTER_NAMES):
-#     _final_char_attrs[f"option_{_hero_name_to_option_key(_name)}"] = _i
+class CheckUnlocks(Choice):
+    """Stats, match challenges and quests need an item before they count, like hero groups. A stat or a quest has one
+    item for all its thresholds; challenges have one item per family (Runes, Positions...) or one each.
+    Quest progress adds up from the start of the seed, even before the quest is unlocked."""
+    display_name = "Check Unlocks"
+    option_off = 0
+    option_by_family = 1
+    option_individual = 2
+    default = 1
 
-# FinalCharacter = type("FinalCharacter", (Choice,), _final_char_attrs)
+
+class StartingCheckUnlocks(Range):
+    """How many of these unlocks you start with, picked at random, like the starting heroes."""
+    display_name = "Starting Check Unlocks"
+    range_start = 0
+    range_end = len(STATS) + len(QUESTS) + len(CHALLENGE_CHECKS)
+    default = 5
+
+
+class DisabledChecks(OptionSet):
+    """Checks to remove: families or check names. Hero group wins and the goal always stay."""
+    display_name = "Disabled Checks"
+    valid_keys = sorted(FAMILIES) + DISABLEABLE_CHECKS
+
+
+DisabledChecks.__doc__ += "\n" + textwrap.fill("Families: " + ", ".join(FAMILIES), 116)
+
+
+class CheckValues(OptionDict):
+    """Numbers used by checks: stats in one match, quests over the seed. A list gives one check per number on the
+    stat's grid, e.g. Last Hits: [300, 450]. Stun times are in seconds. Short Win needs no leaver or bot; Roshan Kills are your team's."""
+    display_name = "Check Values"
+    valid_keys = list(VALUES)
+    default = {name: default for name, (default, _, _) in VALUES.items()}
+
+    def __init__(self, value: dict[str, Any]) -> None:
+        super().__init__(value)
+        errors = []
+        for key, v in self.value.items():
+            if key not in VALUES:
+                continue  # unknown keys are reported by the key check
+            _, low, high = VALUES[key]
+            many = isinstance(v, (list, tuple))
+            if many and key not in SCALES:
+                errors.append(f"{key} takes a single number, got {v}.")
+                continue
+            numbers = list(v) if many else [v]
+            if not numbers or (many and len(numbers) > MAX_THRESHOLDS):
+                errors.append(f"{key} takes 1 to {MAX_THRESHOLDS} thresholds, got {len(numbers)}.")
+            elif any(not isinstance(n, int) or isinstance(n, bool) for n in numbers):
+                errors.append(f"{key} must be whole numbers, got {v}.")
+            elif any(not low <= n <= high for n in numbers):
+                errors.append(f"{key} must be between {low} and {high}, got {v}.")
+            elif len(set(numbers)) != len(numbers):
+                errors.append(f"{key} thresholds must be different, got {v}.")
+            elif key in SCALES and any((n - low) % SCALES[key].step for n in numbers):
+                errors.append(f"{key} goes by steps of {SCALES[key].step} from {low}, got {v}.")
+        if errors:
+            raise ValueError("\n".join([f"For option {self.__class__.__name__}:"] + errors))
+
 
 
 @dataclass
@@ -82,8 +135,11 @@ class DOTA2Options(PerGameCommonOptions):
     total_wins_to_win: TotalWinsToWin
     primordial_fragments_to_win: PrimordialFragmentsToWin
     crownfall: CrownFall
-    #primordial_fragments_to_unlock_final: PrimordialFragmentsToUnlockFinal
-    #final_character: FinalCharacter
-    # game_mode: GameMode
-    # exclude_hard_locations: ExcludeHardLocations
+    starting_heroes: StartingHeroes
+    hero_groups: HeroGroups
+    check_unlocks: CheckUnlocks
+    starting_check_unlocks: StartingCheckUnlocks
+    disabled_checks: DisabledChecks
+    check_values: CheckValues
+
 

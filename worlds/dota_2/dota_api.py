@@ -1,10 +1,13 @@
 import asyncio
+import json
 import logging
 
 import requests
 import time
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from .challenges import WISDOM
+
 @dataclass
 class DotaMatchData:
     match_id: int
@@ -18,6 +21,30 @@ class DotaMatchData:
     win: int
     dewards: int
     rosh: int
+    start_time: int = 0  # unix time, to ignore matches from before the seed
+    # Global challenges and quests (see challenges.py)
+    first_blood: bool = False
+    courier_kills: int = 0
+    runes: dict = field(default_factory=dict)
+    buybacks: int = 0
+    aegis: bool = False
+    position: int = 0
+    duration: int = 0
+    all_players_stayed: bool = False
+    team_roshan_kills: int = 0
+    camps_stacked: int = 0
+    wards_placed: int = 0
+    building_damage: int = 0
+    healing: int = 0
+    physical_damage: int = 0
+    magical_damage: int = 0
+    physical_hit: int = 0
+    magical_hit: int = 0
+    stun_time: int = 0
+    rune_pickups: int = 0
+    net_worth: int = 0
+    gold_earned: int = 0
+    parsed: bool = True  # False until OpenDota has parsed the replay: quest fields are then missing
 
 
 api_logger = logging.getLogger("Client")
@@ -149,11 +176,25 @@ def get_most_recent_match_id(steamID):
     #print(f"DEBUG: {matches[0]['match_id']}")
     return matches[0]['match_id']
 
-async def request_match_parse(steamID):
-    match_id = get_most_recent_match_id(steamID)
+def get_recent_match_ids(steamID, count):
+    matches = OPEN_DOTA.get(f"/players/{steamID}/matches", params={"limit": count})
+    if not matches:
+        api_logger.warning("Could not retrieve player matches from OpenDota.")
+        return None
+    return [match['match_id'] for match in matches]
+
+async def request_match_parse(steamID, match_id=None):
+    if match_id is None:
+        match_id = get_most_recent_match_id(steamID)
 
     if match_id is None:
         return None
+
+    # No need to ask for a new parse when OpenDota already parsed the replay
+    match = OPEN_DOTA.get_match(match_id)
+    if match and match.get('version') is not None:
+        return match
+
     result = OPEN_DOTA.request_parse(match_id)
 
     job_id = result['job']["jobId"]
@@ -177,9 +218,12 @@ def get_my_player(players, steamID) -> dict:
 
     raise ValueError("Player not found in match")
 
-async def parse_most_recent_match_data(steamID):
+async def parse_match_data(steamID, match_id=None):
+    """Parse the given match, or the most recent one, and return the player's data."""
     #print(f"DEBUG: Steam ID = {steamID}")
-    match = await request_match_parse(steamID)
+    match = await request_match_parse(steamID, match_id)
+    if match is None or not match.get('players'):
+        return None
     match_id = match['match_id']
     #print(f"{match_id}")
     players = match['players']
@@ -197,8 +241,77 @@ async def parse_most_recent_match_data(steamID):
         denies = my_player['denies'],
         win = my_player['win'],
         dewards = my_player['observer_kills'] + my_player['sentry_kills'],
-        rosh = my_player['roshan_kills']
+        rosh = my_player['roshan_kills'],
+        start_time = match.get('start_time') or 0,
+        **challenge_data(match, my_player),
     )
+
+def challenge_data(match, me) -> dict:
+    """Fields of DotaMatchData used by the global challenges and quests."""
+    objectives = match.get('objectives') or []
+    my_team = 2 if me['player_slot'] < 128 else 3  # objectives use 2 for Radiant, 3 for Dire
+    players = match.get('players') or []
+    return dict(
+        first_blood = bool(me.get('firstblood_claimed')),
+        courier_kills = me.get('courier_kills') or 0,
+        runes = {str(k): v for k, v in (me.get('runes') or {}).items()},
+        buybacks = me.get('buyback_count') or len(me.get('buyback_log') or []),
+        aegis = any(o.get('type') == 'CHAT_MESSAGE_AEGIS' and o.get('player_slot') == me['player_slot'] for o in objectives),
+        position = me.get('position_est') or 0,
+        duration = match.get('duration') or 0,
+        all_players_stayed = match.get('human_players') == 10 and len(players) == 10
+            and all((p.get('leaver_status') or 0) == 0 for p in players),
+        team_roshan_kills = sum(1 for o in objectives if o.get('type') == 'CHAT_MESSAGE_ROSHAN_KILL' and o.get('team') == my_team),
+        camps_stacked = me.get('camps_stacked') or 0,
+        wards_placed = (me.get('obs_placed') or 0) + (me.get('sen_placed') or 0),
+        building_damage = me.get('tower_damage') or 0,
+        healing = me.get('hero_healing') or 0,
+        stun_time = round(me.get('stuns') or 0),
+        net_worth = me.get('net_worth') or 0,
+        gold_earned = me.get('total_gold') or 0,
+        rune_pickups = sum(n or 0 for k, n in (me.get('runes') or {}).items() if str(k) != WISDOM),
+        parsed = bool(match.get('version')),
+        **damage_by_type(me),
+    )
+
+
+_ABILITY_DAMAGE_TYPES: dict | None = None
+
+def ability_damage_types() -> dict:
+    """Damage type of each ability (Magical, Physical, Pure), from OpenDota's constants, plus attack effects (Physical)."""
+    global _ABILITY_DAMAGE_TYPES
+    if _ABILITY_DAMAGE_TYPES is None:
+        from importlib import resources
+        with resources.files(__package__).joinpath("data/abilityDamageTypes.json").open("r", encoding="utf-8") as f:
+            data = json.load(f)
+        _ABILITY_DAMAGE_TYPES = {**data["ability_damage_types"], **dict.fromkeys(data["attack_effects"], "Physical")}
+    return _ABILITY_DAMAGE_TYPES
+
+def damage_kind(source, types: dict) -> str | None:
+    """Attacks (inflictor "null") are physical, pure damage counts as magical (the usual convention), items as neither."""
+    if source in (None, "null"):
+        return "Physical"
+    return "Magical" if types.get(source) == "Pure" else types.get(source)
+
+def damage_by_type(me) -> dict:
+    """Physical and magical damage to heroes, and the biggest hit of each type we can be sure of."""
+    types = ability_damage_types()
+    inflictors, hits = me.get('damage_inflictor') or {}, me.get('hero_hits') or {}
+    totals = {"Physical": 0, "Magical": 0}
+    best = {"Physical": 0, "Magical": 0}
+    # OpenDota keeps only the match's biggest hit: other types get the best average hit of one of their sources
+    for source, damage in inflictors.items():
+        t = damage_kind(source, types)
+        if t in totals:
+            totals[t] += damage
+            if hits.get(source):
+                best[t] = max(best[t], damage // hits[source])
+    biggest = me.get('max_hero_hit') or {}
+    t = damage_kind(biggest.get('inflictor'), types)
+    if t in best:
+        best[t] = max(best[t], biggest.get('value') or 0)
+    return dict(physical_damage=totals["Physical"], magical_damage=totals["Magical"],
+                physical_hit=best["Physical"], magical_hit=best["Magical"])
 
 
 

@@ -11,13 +11,15 @@ from BaseClasses import Tutorial
 from worlds.AutoWorld import World, WebWorld
 
 # Imports of your world's files must be relative.
-from .constants import DOTA2_BASE_ID
+from .constants import DOTA2_BASE_ID, world_version
 from .options import (DOTA2Options, GoalType, CrownFall)
 from .items import DOTA2Item, ItemDef, load_hero_unlock_items, build_item_name_to_id, FILLER_ITEM_NAME,load_item_defs, load_shop_unlock_items, load_minigame_unlock_items
-from .locations import DOTA2Location, LocationDef, load_hero_locations, build_location_name_to_id, load_item_locations, load_game_stat_locations,load_static_hero_locations, load_victory_location, load_minigame_locations
+from .locations import DOTA2Location, LocationDef, draw_hero_pool, build_location_name_to_id, all_location_defs
 from .rules import set_dota_rules
 from .regions import create_regions_and_locations
 from .hero import Hero, get_starting_hero_pool, get_all_heroes
+from .challenges import resolve_disabled, resolve_values, scale_checks_in_seed, unlock_groups, SCALE_NAMES
+from Options import OptionError
 # For our game to display correctly on the website, we need to define a WebWorld subclass.
 class DOTA2WebWorld(WebWorld):
     # We need to override the "game" field of the WebWorld superclass.
@@ -64,21 +66,15 @@ class DOTA2World(World):
     items_received_index: int = 0 
     
 
-    # Choose a stable, unique base_id range for your world.
+    # Ids come from data/ids.json (ids.py); base_id is the range they started from
     base_id = DOTA2_BASE_ID
 
-    _location_defs = (
-            load_static_hero_locations()
-            + load_item_locations()
-            + load_game_stat_locations()
-            + load_victory_location()
-            + load_minigame_locations()
-        )
+    _location_defs = all_location_defs()
 
     _item_defs = load_item_defs()
 
-    location_name_to_id: Dict[str, int] = build_location_name_to_id(base_id + 10_000, _location_defs,)
-    item_name_to_id: Dict[str, int] =  build_item_name_to_id(base_id, _item_defs)
+    location_name_to_id: Dict[str, int] = build_location_name_to_id(_location_defs)
+    item_name_to_id: Dict[str, int] =  build_item_name_to_id(_item_defs)
 
     def create_item(self, name: str) -> DOTA2Item:
         # Determine classification from defs or fallback for special items.
@@ -97,32 +93,53 @@ class DOTA2World(World):
     
 
     def generate_early(self) -> None:
-        self._location_defs = []
-        self._item_defs = []
-        self._location_defs.extend(load_hero_locations(self))
-        self._location_defs.extend(load_item_locations())
-        self._location_defs.extend(load_game_stat_locations())
-        self._location_defs.extend(load_victory_location())
-        self._location_defs.extend(load_minigame_locations())
-
-        self._item_defs.extend(load_hero_unlock_items(self))
-        self._item_defs.extend(load_shop_unlock_items())
-        self._item_defs.extend(load_minigame_unlock_items())
+        draw_hero_pool(self)
 
         exclude_minigames = self.options.crownfall == CrownFall.option_off
+        disabled = resolve_disabled(self.options.disabled_checks.value)
+        group_count = len(self.hero_groups)
+        values = resolve_values(self.options.check_values.value)
+        scale_in_seed = scale_checks_in_seed(values)  # of the stat and quest names, only the YAML's thresholds
 
-        # location_name_to_id is set per-instance in generate_early from filtered defs (see below).
         def location_type_valid(d: LocationDef) -> bool:
-            if not exclude_minigames: 
-                return d.type == "HERO_WIN" or d.type ==  "ITEM_BUY" or d.type ==  "GAME_STAT" or d.type ==  "GOAL" or d.type ==  "MINIGAME"
-            if exclude_minigames:
-                 return d.type == "HERO_WIN" or d.type ==  "ITEM_BUY" or d.type ==  "GAME_STAT" or d.type ==  "GOAL"
-                
-    
+            if d.name.startswith("Win with Hero from Group "):
+                return int(d.name.removeprefix("Win with Hero from Group ")) <= group_count
+            if d.name in disabled or (d.name in SCALE_NAMES and d.name not in scale_in_seed):
+                return False
+            if d.type == "MINIGAME":
+                return not exclude_minigames
+            return d.type in ("HERO_WIN", "ITEM_BUY", "GAME_STAT", "GOAL", "CHALLENGE")
+
         self._filtered_location_defs = [d for d in self._location_defs if location_type_valid(d)]
         self.location_name_to_id = build_location_name_to_id(
-            self.base_id + 10_000, self._location_defs, filter_fn=location_type_valid
+            self._location_defs, filter_fn=location_type_valid
         )
+
+        self._item_defs = []
+        self._item_defs.extend(load_hero_unlock_items(self))
+        # Component unlocks only matter for purchase checks
+        if any(d.type == "ITEM_BUY" for d in self._filtered_location_defs):
+            self._item_defs.extend(load_shop_unlock_items())
+        self._item_defs.extend(load_minigame_unlock_items())
+
+        # Stats, challenges and quests wait for their unlock item, but for a few picked at random to start with
+        in_seed = {d.name for d in self._filtered_location_defs}
+        groups = {item: [name for name in names if name in in_seed]
+                  for item, names in unlock_groups(self.options.check_unlocks.value).items()}
+        groups = {item: names for item, names in groups.items() if names}
+        self.starting_check_unlocks = self.random.sample(sorted(groups), min(self.options.starting_check_unlocks.value, len(groups)))
+        self.check_unlocks = {item: names for item, names in groups.items() if item not in self.starting_check_unlocks}
+        self._item_defs.extend(ItemDef(name=item, classification=ItemClassification.progression, copies=1,
+                                       include_in_filler=False) for item in self.check_unlocks)
+
+        # Turning off too many checks leaves no room for the items the seed needs
+        needed = sum(d.copies for d in self._item_defs if d.name != FILLER_ITEM_NAME)
+        room = len([d for d in self._filtered_location_defs if d.type != "GOAL"])
+        if needed > room:
+            raise OptionError(
+                f"{self.player_name}: only {room} checks are left for {needed} items. "
+                f"Turn fewer checks off in disabled_checks, lower primordial_fragments_to_win, or raise starting_check_unlocks."
+            )
 
     def create_regions(self) -> None:
         create_regions_and_locations(self, self._filtered_location_defs)
@@ -179,7 +196,11 @@ class DOTA2World(World):
             "hero_groups": hero_groups,
             "progressive_hero_group_unlocks": self.progressive_hero_group_unlocks,
             "items_received_index": self.items_received_index,
-            "item_name_to_id": self.item_id_to_name
+            "item_name_to_id": self.item_id_to_name,
+            "check_values": resolve_values(self.options.check_values.value),
+            "check_unlocks": self.check_unlocks,
+            "starting_check_unlocks": self.starting_check_unlocks,
+            "world_version": world_version(),
             # "game_mode": self.options.game_mode.value,
             # "exclude_hard_locations": self.options.exclude_hard_locations.value,
         }
@@ -191,8 +212,8 @@ class DOTA2World(World):
             for _ in range(d.copies):
                 pool.append(self.create_item(d.name))
 
-        # Pad pool so total items = locations
-        loc_count = len(self.multiworld.get_locations(self.player))
+        # Pad pool so total items = locations that take an item (Goal Complete already holds its locked event)
+        loc_count = len([loc for loc in self.multiworld.get_locations(self.player) if loc.address is not None])
         if len(pool) < loc_count:
             pool += [self.create_item(FILLER_ITEM_NAME) for _ in range(loc_count - len(pool))]
 
