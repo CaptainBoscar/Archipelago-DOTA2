@@ -176,9 +176,9 @@ class SeedThresholds(Dota2TestBase):
         self.assertEqual(checks, ["Get 1 Kill(s)", "Get 5 Kill(s)", "Get 75 Last Hits", "Get 125 Last Hits"])
 
 
-class CheckUnlocksByFamily(Dota2TestBase):
+class CheckUnlocksGrouped(Dota2TestBase):
     def test_unlock_items(self) -> None:
-        # One item per stat, per quest and per challenge family (9), 5 of them unlocked from the start
+        # One item per stat, per quest and per group of challenges (9), 5 of them unlocked from the start
         self.assertEqual(len(self.world.starting_check_unlocks), 5)
         self.assertEqual(len(self.world.check_unlocks), len(STATS) + len(QUESTS) + 9 - 5)
         pool = {item.name for item in self.multiworld.itempool}
@@ -216,3 +216,10 @@ class CheckUnlocksOff(Dota2TestBase):
     def test_no_unlock_items(self) -> None:
         self.assertEqual(self.world.check_unlocks, {})
         self.assertFalse(any(item.name.startswith(("Stat: ", "Quest: ", "Challenge: ")) for item in self.multiworld.itempool))
+
+
+class CheckUnlocksOldName(Dota2TestBase):
+    options = {"check_unlocks": "by_family"}
+
+    def test_still_grouped(self) -> None:
+        self.assertIn("Challenge: Runes", set(self.world.check_unlocks) | set(self.world.starting_check_unlocks))

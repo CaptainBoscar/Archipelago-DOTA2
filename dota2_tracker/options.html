@@ -45,6 +45,7 @@ input[type=text], input[type=number], input[type=search], select { font: inherit
 .warn { font-size: 12px; color: var(--gold); font-weight: 600; }
 .err:empty { display: none; }
 input.bad { border-color: var(--err); }
+input:disabled { opacity: .5; }
 .tablebox { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
@@ -146,8 +147,8 @@ a { color: var(--gold); }
       </div>
       <div class="field">
         <label for="check_unlocks">Check unlocks</label>
-        <select id="check_unlocks"><option value="by_family">By family</option><option value="individual">Individual</option><option value="off">Off</option></select>
-        <span class="hint">Stats, challenges and quests need an item first, like hero groups: one per stat, quest and challenge family, or one per challenge. Quest progress counts from the start.</span>
+        <select id="check_unlocks"><option value="grouped">Grouped</option><option value="individual">One per challenge</option><option value="off">Off</option></select>
+        <span class="hint">Stats, challenges and quests need an item first, like hero groups. One item per stat ("Stat: Kills") and per quest; challenges grouped ("Challenge: Runes" opens the ten rune checks) or one by one. Quest progress counts from the start.</span>
       </div>
       <div class="field">
         <label for="starting_check_unlocks">Starting check unlocks</label>
@@ -266,8 +267,9 @@ const CHALLENGE_ROWS = new Set(GROUPS[2][1]);
 let purchaseNames = [];  // from the apworld's shop data, for single checks
 
 const STORE = "dota2-yaml:v1";
-const state = { name: "", options: { ...OPTIONS }, crownfall: "off", check_unlocks: "by_family", off: [], values: {}, singles: [] };
+const state = { name: "", options: { ...OPTIONS }, crownfall: "off", check_unlocks: "grouped", off: [], values: {}, singles: [] };
 try { Object.assign(state, JSON.parse(localStorage.getItem(STORE)) || {}); } catch (e) {}
+if (state.check_unlocks === "by_family") state.check_unlocks = "grouped";  // its first name
 function save() { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) {} }
 
 const $ = id => document.getElementById(id);
@@ -445,6 +447,9 @@ function readOptions() {
   let errors = 0, optErr = "";
   for (const [key, [low, high]] of Object.entries(RANGES)) {
     const input = $(key), v = Number(input.value);
+    // Starting check unlocks mean nothing without check unlocks
+    input.disabled = key === "starting_check_unlocks" && state.check_unlocks === "off";
+    if (input.disabled) { input.classList.remove("bad"); o[key] = OPTIONS[key]; continue; }
     const bad = !/^\d+$/.test(String(input.value).trim()) || v < low || v > high;
     input.classList.toggle("bad", bad);
     if (bad) { errors++; optErr = `${input.previousElementSibling.textContent}: a whole number from ${low} to ${high}.`; }
@@ -508,7 +513,7 @@ function disabledList(singles) {
   return [...disabled, ...whole.map(g => g.key), ...singles.filter(n => !whole.some(g => g.names.includes(n)))];
 }
 
-// Unlock items in the pool: one per stat, quest and challenge family (or challenge) left in the seed, minus the starting ones
+// Unlock items in the pool: one per stat, quest and group of challenges (or challenge) left in the seed, minus the starting ones
 function unlockItems(names, singles, starting) {
   if (state.check_unlocks === "off") return 0;
   let units = 0;
@@ -521,7 +526,7 @@ function unlockItems(names, singles, starting) {
 
 function yamlText(name, o, disabled, values) {
   const lines = [`name: ${yamlString(name)}`, `game: DOTA 2`, ``, `DOTA 2:`];
-  for (const key of Object.keys(RANGES)) lines.push(`  ${key}: ${o[key]}`);
+  for (const key of Object.keys(RANGES)) if (!$(key).disabled) lines.push(`  ${key}: ${o[key]}`);
   lines.push(`  check_unlocks: "${state.check_unlocks}"`);
   lines.push(`  crownfall: "${state.crownfall}"`);
   lines.push(`  disabled_checks: [${disabled.map(yamlString).join(", ")}]`);
@@ -592,7 +597,7 @@ $("download").addEventListener("click", () => {
 });
 $("reset").addEventListener("click", () => {
   if (!confirm("Reset every option to its default? Your player name stays.")) return;
-  Object.assign(state, { options: { ...OPTIONS }, crownfall: "off", check_unlocks: "by_family", off: [], values: {}, singles: [] });
+  Object.assign(state, { options: { ...OPTIONS }, crownfall: "off", check_unlocks: "grouped", off: [], values: {}, singles: [] });
   save();
   location.reload();
 });

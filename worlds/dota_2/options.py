@@ -69,17 +69,20 @@ class HeroGroups(Range):
 
 class CheckUnlocks(Choice):
     """Stats, match challenges and quests need an item before they count, like hero groups. A stat or a quest has one
-    item for all its thresholds; challenges have one item per family (Runes, Positions...) or one each.
+    item for all its thresholds ("Stat: Kills", "Quest: Total Runes"). Challenges are unlocked in groups with "grouped"
+    ("Challenge: Runes" for the ten rune checks), one by one with "individual" ("Challenge: Pick up a Bounty Rune").
     Quest progress adds up from the start of the seed, even before the quest is unlocked."""
     display_name = "Check Unlocks"
     option_off = 0
-    option_by_family = 1
+    option_grouped = 1
     option_individual = 2
+    alias_by_family = 1  # its first name
     default = 1
 
 
 class StartingCheckUnlocks(Range):
-    """How many of these unlocks you start with, picked at random, like the starting heroes."""
+    """How many of these unlocks you start with, picked at random, like the starting heroes. Not used when
+    check_unlocks is off."""
     display_name = "Starting Check Unlocks"
     range_start = 0
     range_end = len(STATS) + len(QUESTS) + len(CHALLENGE_CHECKS)
