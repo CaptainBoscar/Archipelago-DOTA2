@@ -51,7 +51,8 @@ class CrownFall(Choice):
     default = 0
 
 class StartingHeroes(Range):
-    """Number of heroes playable from the start."""
+    """Number of heroes playable from the start. Below 30, bans and the other players' picks can leave none of them
+    to pick in a match."""
     display_name = "Starting Heroes"
     range_start = 5
     range_end = 120
