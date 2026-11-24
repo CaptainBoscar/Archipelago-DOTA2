@@ -120,7 +120,8 @@ def build_location_name_to_id(location_defs: List[LocationDef], filter_fn: typin
 
 
 def retired_location_names() -> set[str]:
-    """Locations of older versions the game no longer has (items Valve removed): seeds from then may still have them."""
+    """Locations of older versions this one no longer has (items Valve removed, checks reworked): seeds from then may
+    still have them."""
     return set(LOCATION_IDS) - {d.name for d in all_location_defs()}
 
 def load_static_hero_locations() -> List[LocationDef]:

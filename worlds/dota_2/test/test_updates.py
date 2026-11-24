@@ -5,7 +5,7 @@ from types import SimpleNamespace
 from unittest import TestCase
 
 from ..Client import Dota2Context
-from ..ids import ITEM_IDS, LOCATION_IDS
+from ..ids import ITEM_IDS, LOCATION_IDS, id_of
 from ..locations import all_location_defs, retired_location_names
 from .. import DOTA2World
 from .bases import Dota2TestBase
@@ -25,9 +25,18 @@ class FrozenIds(TestCase):
         self.assertEqual(LOCATION_IDS["Get 1 Kill(s)"], 7711739)
         self.assertEqual(ITEM_IDS["Gone Fishin' Minigame"], 7701603)
 
+    def test_provisional_id(self) -> None:
+        # A name not registered yet still loads (update_ids imports the world), after the last id and always the same
+        ids = {"a": 5}
+        with self.assertLogs(level="WARNING"):
+            self.assertEqual(id_of(ids, "b"), 6)
+        self.assertEqual((id_of(ids, "c"), id_of(ids, "b"), id_of(ids, "a")), (7, 6, 5))
+
     def test_retired_locations(self) -> None:
         retired = retired_location_names()
         self.assertTrue({"Javelin", "Khanda", "Helm of the Overlord"} <= retired)
+        # A check the apworld dropped (a stat now) is retired too, so older seeds get it sent
+        self.assertIn("Kill a Courier", retired)
         self.assertFalse(retired & {d.name for d in all_location_defs()})
 
 
