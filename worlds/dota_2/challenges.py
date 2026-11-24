@@ -108,8 +108,9 @@ def _purchase_checks() -> list[str]:
 
 
 # Items that unlock stats, challenges and quests (check_unlocks), like hero groups: a stat or a quest has one item
-# for all its thresholds, a challenge family one item ("by_family") or each challenge its own ("individual").
-CHECK_UNLOCKS_OFF, CHECK_UNLOCKS_BY_FAMILY, CHECK_UNLOCKS_INDIVIDUAL = 0, 1, 2
+# for all its thresholds, a group of challenges (CHALLENGE_FAMILIES) one item ("grouped") or each challenge its own
+# ("individual").
+CHECK_UNLOCKS_OFF, CHECK_UNLOCKS_GROUPED, CHECK_UNLOCKS_INDIVIDUAL = 0, 1, 2
 STAT_UNLOCKS = {f"Stat: {s.value}": s.names for s in STATS}
 QUEST_UNLOCKS = {f"Quest: {s.value}": s.names for s in QUESTS}
 CHALLENGE_FAMILY_UNLOCKS = {f"Challenge: {family}": names for family, names in CHALLENGE_FAMILIES.items()}
