@@ -20,7 +20,7 @@ When Valve adds, removes or changes items or heroes:
 
 Ids never move (`data/ids.json`), so seeds made before the update keep working with the new client:
 
-- checks of items the game no longer has are sent for the player on connection;
+- checks this version no longer has (items the game removed, reworked checks such as "Kill a Courier") are sent for the player on connection;
 - a component unlock added since doesn't block a purchase;
 - heroes added since aren't in the seed;
 - the client says when the seed was made with another `world_version`.

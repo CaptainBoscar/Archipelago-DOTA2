@@ -593,12 +593,13 @@ const STAT_NAMES = [["Get {} Kill(s)", "kills"], ["Get {} Assists", "assists"], 
   ["Get {} Last Hits", "last_hits"], ["Get {} Denies", "denies"], ["Heal {} in a Match", "healing"],
   ["Deal {} Physical Damage in a Match", "physical_damage"], ["Deal {} Magical Damage in a Match", "magical_damage"],
   ["Land a {} Physical Hit", "physical_hit"], ["Land a {} Magical Hit", "magical_hit"], ["Stun Enemies for {}s in a Match", "stun_time"],
-  ["Stack {} Camps in a Match", "camps_stacked"], ["Reach {} Net Worth in a Match", "net_worth"]];
+  ["Stack {} Camps in a Match", "camps_stacked"], ["Reach {} Net Worth in a Match", "net_worth"],
+  ["Kill {} Courier(s)", "courier_kills"], ["Pick up {} Runes in a Match", "rune_pickups"]];
 // Quests add up over the seed; the field is also the quest total's key
 const QUEST_NAMES = [["Stack {} Camps in Total", "camps_stacked"], ["Place {} Wards in Total", "wards_placed"], ["Deal {} Building Damage in Total", "building_damage"],
   ["Heal {} in Total", "healing"], ["Deal {} Physical Damage in Total", "physical_damage"],
   ["Deal {} Magical Damage in Total", "magical_damage"], ["Stun Enemies for {}s in Total", "stun_time"],
-  ["Pick up {} Runes in Total", "rune_pickups"], ["Earn {} Gold in Total", "gold_earned"]];
+  ["Pick up {} Runes in Total", "rune_pickups"], ["Earn {} Gold in Total", "gold_earned"], ["Kill {} Couriers in Total", "courier_kills"]];
 const nameRegex = t => new RegExp("^" + t.replace(/[.*+?^$()|[\]\\]/g, "\\$&").replace("{}", "(\\d+)") + "$");
 const STAT_RES = STAT_NAMES.map(([t, field]) => [nameRegex(t), field]);
 const QUEST_RES = QUEST_NAMES.map(([t, field]) => [nameRegex(t), field]);
@@ -611,7 +612,7 @@ const RUNES = { 0: "Double Damage", 1: "Haste", 2: "Illusion", 3: "Invisibility"
   5: "Bounty", 6: "Arcane", 7: "Water", 8: "Wisdom", 9: "Shield" };
 // Wisdom runes became Shrines of Wisdom in 7.38, still reported as rune 8
 const runeCheck = r => r === "Wisdom" ? "Use a Shrine of Wisdom" : `Pick up ${/^[AEIOU]/.test(r) ? "an" : "a"} ${r} Rune`;
-// What a match adds to a quest; runes are counted from the per-rune pickups, without Shrines of Wisdom
+// What a match adds to a stat or quest; runes are counted from the per-rune pickups, without Shrines of Wisdom
 const questAmount = (d, field) => field === "rune_pickups"
   ? Object.entries(d.runes || {}).reduce((sum, [k, n]) => sum + (k === "8" ? 0 : n || 0), 0) : d[field] || 0;
 // Values the win challenges use, from the seed's check_values
@@ -619,9 +620,8 @@ const seedValues = sd => ({ "Short Win Minutes": 30, "Long Win Minutes": 60, "Ro
 
 // Checks a match sends whatever its result (stats and challenges), among the seed's checks
 function statAndChallengeChecks(d, seedChecks) {
-  const stats = [...seedChecks].filter(name => { const s = scaleOf(name, STAT_RES); return s && d[s.field] >= s.threshold; });
+  const stats = [...seedChecks].filter(name => { const s = scaleOf(name, STAT_RES); return s && questAmount(d, s.field) >= s.threshold; });
   if (d.first_blood) stats.push("Get First Blood");
-  if (d.courier_kills > 0) stats.push("Kill a Courier");
   Object.entries(d.runes || {}).forEach(([k, n]) => { if (n && RUNES[k]) stats.push(runeCheck(RUNES[k])); });
   if (d.buybacks > 0) stats.push("Use a Buyback");
   if (d.aegis) stats.push("Pick up the Aegis");
@@ -1030,7 +1030,7 @@ function tagCell(k, v, label) {
 
 // Match objectives in a readable order: wins by trait, then each stat from its lowest threshold up
 const MATCH_ORDER = ["Strength", "Agility", "Intelligence", "Universal", "Melee", "Ranged", "0 Legged", "2 Legged", "4+ Legged",
-  "Carry", "Support", "Kill", "Assist", "Deward", "Last Hit", "Denies", "Heal", "Physical Damage", "Magical Damage", "Physical Hit", "Magical Hit", "Stun", "Stack", "Net Worth"];
+  "Carry", "Support", "Courier", "Kill", "Assist", "Deward", "Last Hit", "Denies", "Heal", "Physical Damage", "Magical Damage", "Physical Hit", "Magical Hit", "Stun", "Stack", "Net Worth", "Runes in a Match"];
 function matchRank(name) {
   const i = MATCH_ORDER.findIndex(w => name.includes(w));
   const n = +(name.match(/\d+/g) || [0]).pop();

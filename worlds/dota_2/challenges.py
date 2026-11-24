@@ -55,6 +55,8 @@ STATS = [
     Scale("Stun Time", "stun_time", "Stun Enemies for {}s in a Match", (60,), 10, 300, 10),  # seconds
     Scale("Camps Stacked", "camps_stacked", "Stack {} Camps in a Match", (5,), 5, 30, 5),
     Scale("Net Worth", "net_worth", "Reach {} Net Worth in a Match", (30000,), 15000, 60000, 2500),
+    Scale("Courier Kills", "courier_kills", "Kill {} Courier(s)", (1,), 1, 5, 1),  # the former "Kill a Courier" challenge
+    Scale("Rune Pickups", "rune_pickups", "Pick up {} Runes in a Match", (8,), 2, 20, 1),  # Shrines of Wisdom not counted
 ]
 
 # Quests add up over the whole seed, with a lower and a full target by default (about ten matches in the most
@@ -69,6 +71,7 @@ QUESTS = [
     Scale("Total Stun Time", "stun_time", "Stun Enemies for {}s in Total", (200, 400), 50, 1000, 50),
     Scale("Total Runes", "rune_pickups", "Pick up {} Runes in Total", (20, 50), 10, 100, 5),  # Shrines of Wisdom not counted
     Scale("Total Gold", "gold_earned", "Earn {} Gold in Total", (125000, 250000), 50000, 500000, 25000),
+    Scale("Total Courier Kills", "courier_kills", "Kill {} Couriers in Total", (2, 4), 2, 20, 1),
 ]
 SCALES = {s.value: s for s in STATS + QUESTS}
 
@@ -90,7 +93,6 @@ def rune_check(rune: str) -> str:
 # Global challenges of one match, in location order
 CHALLENGE_FAMILIES: dict[str, list[str]] = {
     "First Blood": ["Get First Blood"],
-    "Courier Kill": ["Kill a Courier"],
     "Runes": [rune_check(r) for r in RUNES.values()],
     "Buyback": ["Use a Buyback"],
     "Aegis": ["Pick up the Aegis"],
@@ -108,8 +110,9 @@ def _purchase_checks() -> list[str]:
 
 
 # Items that unlock stats, challenges and quests (check_unlocks), like hero groups: a stat or a quest has one item
-# for all its thresholds, a challenge family one item ("by_family") or each challenge its own ("individual").
-CHECK_UNLOCKS_OFF, CHECK_UNLOCKS_BY_FAMILY, CHECK_UNLOCKS_INDIVIDUAL = 0, 1, 2
+# for all its thresholds, a group of challenges (CHALLENGE_FAMILIES) one item ("grouped") or each challenge its own
+# ("individual").
+CHECK_UNLOCKS_OFF, CHECK_UNLOCKS_GROUPED, CHECK_UNLOCKS_INDIVIDUAL = 0, 1, 2
 STAT_UNLOCKS = {f"Stat: {s.value}": s.names for s in STATS}
 QUEST_UNLOCKS = {f"Quest: {s.value}": s.names for s in QUESTS}
 CHALLENGE_FAMILY_UNLOCKS = {f"Challenge: {family}": names for family, names in CHALLENGE_FAMILIES.items()}
@@ -198,8 +201,6 @@ def match_challenges(m: DotaMatchData, values: dict[str, Any]) -> list[str]:
     checks = []
     if m.first_blood:
         checks.append("Get First Blood")
-    if m.courier_kills > 0:
-        checks.append("Kill a Courier")
     checks += [rune_check(RUNES[key]) for key, count in m.runes.items() if count and key in RUNES]
     if m.buybacks > 0:
         checks.append("Use a Buyback")

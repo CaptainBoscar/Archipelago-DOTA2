@@ -42,8 +42,10 @@ section { display: grid; gap: 14px; }
 input[type=text], input[type=number], input[type=search], select { font: inherit; padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); min-width: 0; }
 .hint { font-size: 12px; color: var(--muted); }
 .err { font-size: 12px; color: var(--err); }
+.warn { font-size: 12px; color: var(--gold); font-weight: 600; }
 .err:empty { display: none; }
 input.bad { border-color: var(--err); }
+input:disabled { opacity: .5; }
 .tablebox { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
@@ -131,6 +133,7 @@ a { color: var(--gold); }
         <label for="starting_heroes">Starting heroes</label>
         <input type="number" id="starting_heroes" data-option min="5" max="120" step="1">
         <span class="hint">Playable from the start. 5 to 120, 30 by default.</span>
+        <span class="warn" id="starting-warn"></span>
       </div>
       <div class="field">
         <label for="hero_groups">Hero groups</label>
@@ -144,13 +147,13 @@ a { color: var(--gold); }
       </div>
       <div class="field">
         <label for="check_unlocks">Check unlocks</label>
-        <select id="check_unlocks"><option value="by_family">By family</option><option value="individual">Individual</option><option value="off">Off</option></select>
-        <span class="hint">Stats, challenges and quests need an item first, like hero groups: one per stat, quest and challenge family, or one per challenge. Quest progress counts from the start.</span>
+        <select id="check_unlocks"><option value="grouped">Grouped</option><option value="individual">One per challenge</option><option value="off">Off</option></select>
+        <span class="hint">Stats, challenges and quests need an item first, like hero groups. One item per stat ("Stat: Kills") and per quest, which opens all its thresholds; challenges grouped ("Challenge: Runes" opens the ten rune checks) or one by one. Quest progress counts from the start.</span>
       </div>
       <div class="field">
         <label for="starting_check_unlocks">Starting check unlocks</label>
-        <input type="number" id="starting_check_unlocks" data-option min="0" max="44" step="1">
-        <span class="hint">Unlocked from the start, picked at random. 0 to 44, 5 by default.</span>
+        <input type="number" id="starting_check_unlocks" data-option min="0" max="33" step="1">
+        <span class="hint" id="starting-unlocks-hint">Unlocked from the start, picked at random. 0 to 33, 5 by default.</span>
       </div>
     </div>
     <span class="err" id="options-err"></span>
@@ -198,10 +201,12 @@ a { color: var(--gold); }
 // The checks, as in worlds/dota_2/challenges.py and options.py: keep both in step.
 const DATA_URL = "https://raw.githubusercontent.com/CaptainBoscar/Archipelago-DOTA2/main/worlds/dota_2/data/";
 const OPTIONS = { unique_characters_to_win: 5, total_wins_to_win: 5, primordial_fragments_to_win: 10, starting_heroes: 30, hero_groups: 7, starting_check_unlocks: 5 };
-const RANGES = { unique_characters_to_win: [1, 127], total_wins_to_win: [1, 127], primordial_fragments_to_win: [10, 50], starting_heroes: [5, 120], hero_groups: [1, 30], starting_check_unlocks: [0, 44] };
+const RANGES = { unique_characters_to_win: [1, 127], total_wins_to_win: [1, 127], primordial_fragments_to_win: [10, 50], starting_heroes: [5, 120], hero_groups: [1, 30], starting_check_unlocks: [0, 46] };
+// Unlock items per mode: 15 stats + 10 quests + 8 groups of challenges, or the 21 challenges one by one
+const UNLOCK_MAX = { grouped: 33, individual: 46 };
 const MAX_THRESHOLDS = 5;
 // Counted from the apworld's data once it loads; these are the current numbers until then
-const COUNTS = { heroes: 127, purchases: 188, shopUnlocks: 60, minigameChecks: 32, minigameItems: 10 };
+const COUNTS = { heroes: 127, purchases: 192, shopUnlocks: 61, minigameChecks: 32, minigameItems: 10 };
 const RUNES = ["Double Damage", "Haste", "Illusion", "Invisibility", "Regeneration", "Bounty", "Arcane", "Water", "Wisdom", "Shield"];
 const runeCheck = r => r === "Wisdom" ? "Use a Shrine of Wisdom" : `Pick up ${/^[AEIOU]/.test(r) ? "an" : "a"} ${r} Rune`;
 // A stat or quest: check_values key, label, name template, default thresholds, low, high, step
@@ -229,10 +234,11 @@ const GROUPS = [
     scale("Stun Time", "Stun time (s)", "Stun Enemies for {}s in a Match", [60], 10, 300, 10),
     scale("Camps Stacked", "Camps stacked", "Stack {} Camps in a Match", [5], 5, 30, 5),
     scale("Net Worth", "Net worth", "Reach {} Net Worth in a Match", [30000], 15000, 60000, 2500),
+    scale("Courier Kills", "Couriers killed", "Kill {} Courier(s)", [1], 1, 5, 1),
+    scale("Rune Pickups", "Runes picked up", "Pick up {} Runes in a Match", [8], 2, 20, 1),
   ]],
   ["Match challenges", [
     family("First Blood", "First Blood", ["Get First Blood"]),
-    family("Courier Kill", "Courier kill", ["Kill a Courier"]),
     family("Runes", "Runes", RUNES.map(runeCheck)),
     family("Buyback", "Buyback", ["Use a Buyback"]),
     family("Aegis", "Aegis", ["Pick up the Aegis"]),
@@ -251,6 +257,7 @@ const GROUPS = [
     scale("Total Stun Time", "Stun time (s)", "Stun Enemies for {}s in Total", [200, 400], 50, 1000, 50),
     scale("Total Runes", "Runes picked up", "Pick up {} Runes in Total", [20, 50], 10, 100, 5),
     scale("Total Gold", "Gold earned", "Earn {} Gold in Total", [125000, 250000], 50000, 500000, 25000),
+    scale("Total Courier Kills", "Couriers killed", "Kill {} Couriers in Total", [2, 4], 2, 20, 1),
   ]],
   ["Purchases", [
     family("Purchases", "Buy each item", null),
@@ -264,8 +271,9 @@ const CHALLENGE_ROWS = new Set(GROUPS[2][1]);
 let purchaseNames = [];  // from the apworld's shop data, for single checks
 
 const STORE = "dota2-yaml:v1";
-const state = { name: "", options: { ...OPTIONS }, crownfall: "off", check_unlocks: "by_family", off: [], values: {}, singles: [] };
+const state = { name: "", options: { ...OPTIONS }, crownfall: "off", check_unlocks: "grouped", off: [], values: {}, singles: [] };
 try { Object.assign(state, JSON.parse(localStorage.getItem(STORE)) || {}); } catch (e) {}
+if (state.check_unlocks === "by_family") state.check_unlocks = "grouped";  // its first name
 function save() { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) {} }
 
 const $ = id => document.getElementById(id);
@@ -441,8 +449,17 @@ async function getJSON(url) {
 function readOptions() {
   const o = {};
   let errors = 0, optErr = "";
-  for (const [key, [low, high]] of Object.entries(RANGES)) {
+  for (const [key, [low, max]] of Object.entries(RANGES)) {
     const input = $(key), v = Number(input.value);
+    // Fewer unlock items when challenges are grouped: more starting ones change nothing
+    const high = key === "starting_check_unlocks" ? (UNLOCK_MAX[state.check_unlocks] || max) : max;
+    if (key === "starting_check_unlocks") {
+      input.max = high;
+      $("starting-unlocks-hint").textContent = `Unlocked from the start, picked at random. 0 to ${high}, 5 by default.`;
+    }
+    // Starting check unlocks mean nothing without check unlocks
+    input.disabled = key === "starting_check_unlocks" && state.check_unlocks === "off";
+    if (input.disabled) { input.classList.remove("bad"); o[key] = OPTIONS[key]; continue; }
     const bad = !/^\d+$/.test(String(input.value).trim()) || v < low || v > high;
     input.classList.toggle("bad", bad);
     if (bad) { errors++; optErr = `${input.previousElementSibling.textContent}: a whole number from ${low} to ${high}.`; }
@@ -453,6 +470,9 @@ function readOptions() {
   // The other heroes are split evenly: the first groups get one more when it doesn't divide
   const size = Math.floor(rest / groups), extra = rest % groups;
   const split = extra ? `${extra} of ${size + 1} heroes and ${groups - extra} of ${size}` : `${size} hero${size === 1 ? "" : "es"} each`;
+  // Up to 10 bans and 9 picks by the other players can take a small pool's heroes
+  $("starting-warn").textContent = o.starting_heroes < 30
+    ? "Below 30, bans and the other players' picks can leave none of your heroes to pick in a match." : "";
   $("groups-hint").textContent = (groups < o.hero_groups ? `Only ${groups} groups fit with ${o.starting_heroes} starting heroes. ` : "")
     + `${rest} heroes to unlock in ${groups} group${groups === 1 ? "" : "s"}: ${groups === 1 ? `all ${rest}` : split}. 1 to 30, 7 by default.`;
   return { o, groups, errors };
@@ -503,7 +523,7 @@ function disabledList(singles) {
   return [...disabled, ...whole.map(g => g.key), ...singles.filter(n => !whole.some(g => g.names.includes(n)))];
 }
 
-// Unlock items in the pool: one per stat, quest and challenge family (or challenge) left in the seed, minus the starting ones
+// Unlock items in the pool: one per stat, quest and group of challenges (or challenge) left in the seed, minus the starting ones
 function unlockItems(names, singles, starting) {
   if (state.check_unlocks === "off") return 0;
   let units = 0;
@@ -516,7 +536,7 @@ function unlockItems(names, singles, starting) {
 
 function yamlText(name, o, disabled, values) {
   const lines = [`name: ${yamlString(name)}`, `game: DOTA 2`, ``, `DOTA 2:`];
-  for (const key of Object.keys(RANGES)) lines.push(`  ${key}: ${o[key]}`);
+  for (const key of Object.keys(RANGES)) if (!$(key).disabled) lines.push(`  ${key}: ${o[key]}`);
   lines.push(`  check_unlocks: "${state.check_unlocks}"`);
   lines.push(`  crownfall: "${state.crownfall}"`);
   lines.push(`  disabled_checks: [${disabled.map(yamlString).join(", ")}]`);
@@ -587,7 +607,7 @@ $("download").addEventListener("click", () => {
 });
 $("reset").addEventListener("click", () => {
   if (!confirm("Reset every option to its default? Your player name stays.")) return;
-  Object.assign(state, { options: { ...OPTIONS }, crownfall: "off", check_unlocks: "by_family", off: [], values: {}, singles: [] });
+  Object.assign(state, { options: { ...OPTIONS }, crownfall: "off", check_unlocks: "grouped", off: [], values: {}, singles: [] });
   save();
   location.reload();
 });

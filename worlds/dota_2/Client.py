@@ -328,7 +328,7 @@ class Dota2Context(CommonContext):
             seed_version = self.slot_data.get("world_version")
             if seed_version and seed_version != world_version():
                 self.output(f"This seed was made with version {seed_version} of the DOTA 2 apworld, you have {world_version()}: "
-                            f"checks the game no longer has are sent for you, and heroes added since aren't in this seed.")
+                            f"checks this version no longer has are sent for you, and heroes added since aren't in this seed.")
             if async_start:
                 async_start(self.send_retired_locations(), name="send_retired_locations")
             return
@@ -542,7 +542,8 @@ class Dota2Context(CommonContext):
         return locked_checks(self.slot_data, self.received_item_names())
 
     async def send_retired_locations(self) -> None:
-        """Checks of items the game no longer has (seeds from before a game update) can't be done: sent for the player."""
+        """Checks this apworld no longer has (items the game removed, checks reworked) can't be done in seeds from
+        before: sent for the player."""
         try:
             names = self.location_names[self.game]
         except (KeyError, TypeError):
@@ -550,7 +551,7 @@ class Dota2Context(CommonContext):
         retired = retired_location_names()
         ids = [loc_id for loc_id in self.missing_locations if names.get(loc_id) in retired]
         if ids:
-            self.output("No longer in the game, sent for you: " + ", ".join(sorted(names[i] for i in ids)))
+            self.output("No longer checks in this version, sent for you: " + ", ".join(sorted(names[i] for i in ids)))
             await self.check_locations(ids)
 
     async def send_unlocked_quests(self) -> None:

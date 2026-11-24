@@ -43,7 +43,7 @@ class CustomSeed(Dota2TestBase):
     options = {
         "starting_heroes": 50,
         "hero_groups": 12,
-        "disabled_checks": ["Runes", "Kill a Courier", "Legs Wins", "Divine Rapier"],
+        "disabled_checks": ["Runes", "Use a Buyback", "Courier Kills", "Legs Wins", "Divine Rapier"],
         "check_values": {"Short Win Minutes": 25, "Kills": 8, "Last Hits": [250, 75, 150, 400, 600], "Total Camps Stacked": 30},
     }
 
@@ -60,7 +60,7 @@ class CustomSeed(Dota2TestBase):
 
     def test_disabled_checks_removed(self) -> None:
         names = {loc.name for loc in self.multiworld.get_locations(self.player)}
-        for name in FAMILIES["Runes"] + FAMILIES["Legs Wins"] + ["Kill a Courier", "Divine Rapier"]:
+        for name in FAMILIES["Runes"] + FAMILIES["Legs Wins"] + ["Use a Buyback", "Kill 1 Courier(s)", "Divine Rapier"]:
             self.assertNotIn(name, names)
         self.assertIn("Get First Blood", names)
         self.assertIn("Win as a Melee Hero", names)
@@ -102,9 +102,11 @@ class ChallengeRules(Dota2TestBase):
 
     def test_stat_checks(self) -> None:
         values = resolve_values({"Kills": [15, 1, 5]})
-        checks = stat_checks(sample_match(kills=12, last_hits=460, camps_stacked=6, net_worth=31000), values)
+        checks = stat_checks(sample_match(kills=12, last_hits=460, camps_stacked=6, net_worth=31000, courier_kills=1,
+                                          rune_pickups=7), values)
         self.assertEqual(checks, ["Get 1 Kill(s)", "Get 5 Kill(s)", "Get 450 Last Hits", "Stack 5 Camps in a Match",
-                                  "Reach 30000 Net Worth in a Match"])
+                                  "Reach 30000 Net Worth in a Match", "Kill 1 Courier(s)"])
+        self.assertIn("Pick up 8 Runes in a Match", stat_checks(sample_match(rune_pickups=8), values))
 
     def test_match_challenges(self) -> None:
         values = resolve_values({})
@@ -123,6 +125,9 @@ class ChallengeRules(Dota2TestBase):
         self.assertEqual(completed_quests({"camps_stacked": 20}, resolve_values({"Total Camps Stacked": 30})), [])
         self.assertEqual(completed_quests({"rune_pickups": 45}, values), ["Pick up 20 Runes in Total"])
         self.assertEqual(completed_quests({"gold_earned": 130000}, values), ["Earn 125000 Gold in Total"])
+        self.assertEqual(completed_quests({"courier_kills": 3}, values), ["Kill 2 Couriers in Total"])
+        # Killing a courier is a stat now, no longer a challenge
+        self.assertNotIn("Kill a Courier", match_challenges(sample_match(courier_kills=2), values))
 
     def test_rune_pickups_skip_shrines(self) -> None:
         me = {"player_slot": 0, "runes": {"5": 3, "8": 4, "1": 1}, "net_worth": 21000, "total_gold": 23000}
@@ -176,11 +181,11 @@ class SeedThresholds(Dota2TestBase):
         self.assertEqual(checks, ["Get 1 Kill(s)", "Get 5 Kill(s)", "Get 75 Last Hits", "Get 125 Last Hits"])
 
 
-class CheckUnlocksByFamily(Dota2TestBase):
+class CheckUnlocksGrouped(Dota2TestBase):
     def test_unlock_items(self) -> None:
-        # One item per stat, per quest and per challenge family (9), 5 of them unlocked from the start
+        # One item per stat, per quest and per group of challenges, 5 of them unlocked from the start
         self.assertEqual(len(self.world.starting_check_unlocks), 5)
-        self.assertEqual(len(self.world.check_unlocks), len(STATS) + len(QUESTS) + 9 - 5)
+        self.assertEqual(len(self.world.check_unlocks), len(STATS) + len(QUESTS) + len(CHALLENGE_FAMILIES) - 5)
         pool = {item.name for item in self.multiworld.itempool}
         self.assertTrue(set(self.world.check_unlocks) <= pool)
         self.assertFalse(set(self.world.starting_check_unlocks) & pool)
@@ -216,3 +221,19 @@ class CheckUnlocksOff(Dota2TestBase):
     def test_no_unlock_items(self) -> None:
         self.assertEqual(self.world.check_unlocks, {})
         self.assertFalse(any(item.name.startswith(("Stat: ", "Quest: ", "Challenge: ")) for item in self.multiworld.itempool))
+
+
+class CheckUnlocksAllGrouped(Dota2TestBase):
+    # Above the 33 grouped unlocks: everything starts unlocked
+    options = {"check_unlocks": "grouped", "starting_check_unlocks": 44}
+
+    def test_everything_unlocked(self) -> None:
+        self.assertEqual(len(self.world.starting_check_unlocks), len(STATS) + len(QUESTS) + len(CHALLENGE_FAMILIES))
+        self.assertEqual(self.world.check_unlocks, {})
+
+
+class CheckUnlocksOldName(Dota2TestBase):
+    options = {"check_unlocks": "by_family"}
+
+    def test_still_grouped(self) -> None:
+        self.assertIn("Challenge: Runes", set(self.world.check_unlocks) | set(self.world.starting_check_unlocks))
