@@ -82,7 +82,8 @@ class CheckUnlocks(Choice):
 
 class StartingCheckUnlocks(Range):
     """How many of these unlocks you start with, picked at random, like the starting heroes. Not used when
-    check_unlocks is off."""
+    check_unlocks is off. There are 31 unlocks when grouped and 44 with one per challenge: a higher value
+    unlocks everything."""
     display_name = "Starting Check Unlocks"
     range_start = 0
     range_end = len(STATS) + len(QUESTS) + len(CHALLENGE_CHECKS)

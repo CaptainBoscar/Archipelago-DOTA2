@@ -218,6 +218,15 @@ class CheckUnlocksOff(Dota2TestBase):
         self.assertFalse(any(item.name.startswith(("Stat: ", "Quest: ", "Challenge: ")) for item in self.multiworld.itempool))
 
 
+class CheckUnlocksAllGrouped(Dota2TestBase):
+    # Above the 31 grouped unlocks: everything starts unlocked
+    options = {"check_unlocks": "grouped", "starting_check_unlocks": 44}
+
+    def test_everything_unlocked(self) -> None:
+        self.assertEqual(len(self.world.starting_check_unlocks), len(STATS) + len(QUESTS) + 9)
+        self.assertEqual(self.world.check_unlocks, {})
+
+
 class CheckUnlocksOldName(Dota2TestBase):
     options = {"check_unlocks": "by_family"}
 
